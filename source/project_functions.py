@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import h5py
 import time
+import os
 import multiprocessing as mp
 
 from PIL import Image
@@ -82,6 +83,38 @@ def saveXYtoDisk(result,fname):
     file.create_dataset('set_x', data=set_x,dtype='uint8')
     file.create_dataset('set_y', data=set_y,dtype='uint8')
     file.close()
+
+
+def readXYfromDisk():
+    """
+    # Reads .h5 files
+    # Appends them to a list
+    # Finally converts the list to np
+    """
+
+    set_x = []
+    set_y = []
+    
+    for file in os.listdir("../data/"):
+        if file.endswith(".h5"):
+            fname = os.path.join("../data", file)
+            file = h5py.File(fname, "r")
+            set_x_temp = file["set_x"][:]
+            set_y_temp = file["set_y"][:]
+
+            set_x.append(set_x_temp)
+            set_y.append(set_y_temp)
+
+            file.close()
+
+    # Since set_x and set_y are list of arrays, use np.concatenate()
+    # Better than result_array = np.array(result) ?
+
+    set_x = np.concatenate(set_x,axis=0)
+    set_y = np.concatenate(set_y,axis=0)
+
+    return set_x,set_y
+
 
 
 
