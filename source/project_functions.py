@@ -10,10 +10,14 @@ from PIL import Image
 from numpy.random import randint
 from numpy.random import seed
 
-DATE_WINDOW = 20
+DATE_WINDOW = 15
 UP_THRESHOLD_PCT = 1
 DOWN_THRESHOLD_PCT = 1
-IMG_SIZE = 256
+IMG_SIZE = 192
+
+def calcArrayMemorySize(array):
+    return "Memory size is : " + str(array.nbytes/1024/1024) + " Mb"
+    
 
 def setTargetLabel(val):
     if val > UP_THRESHOLD_PCT: out = 2
@@ -143,8 +147,8 @@ def createXYarrays(group):
     First attempt was creating set_x_sub as a list but later settled with single array containing both x and y ie set_xy
     """
 
-    #loop_range=  (group['Symbol'].count()) -  (DATE_WINDOW) - 10    
-    loop_range = 5
+    loop_range=  (group['Symbol'].count()) -  (DATE_WINDOW) - 10    
+    #loop_range = 5
     symbolDate = group[-1:]['Date'].item()
     symbolDate = symbolDate.strftime('%Y%m%d')
 
