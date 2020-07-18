@@ -23,7 +23,19 @@ The project aims at predicting the stock price movements using deep learning mod
         + Both have normal and uniform versions
 
 * Enabled Single Point precision (FP16) for better performance
-* Installed `tensorboard`
+* Installed `[tensorboard]`(https://www.tensorflow.org/tensorboard/get_started)
+* used hParams
+
+### Some Random Notes on Dropout worsens performance
+
+* Furthermore, be careful where you use dropout. It is usually ineffective in the convolutional layers, and very harmful to use right before the softmax layer.
+* Dropout is a regularization technique, and is most effective at preventing overfitting. However, there are several places when dropout can hurt performance.
+    + Right before the last layer. This is generally a bad place to apply dropout, because the network has no ability to "correct" errors induced by dropout before the classification happens. If I read correctly, you might have put dropout right before the softmax in the iris MLP.
+    + When the network is small relative to the dataset, regularization is usually unnecessary. If the model capacity is already low, lowering it further by adding regularization will hurt performance. I noticed most of your networks were relatively small and shallow.
+    + When training time is limited. It's unclear if this is the case here, but if you don't train until convergence, dropout may give worse results. Usually dropout hurts performance at the start of training, but results in the final ''converged'' error being lower. Therefore, if you don't plan to train until convergence, you may not want to use dropout.
+    + Finally, I want to mention that as far as I know, dropout is rarely used nowaways, having been supplanted by a technique known as batch normalization. Of course, that's not to say dropout isn't a valid and effective tool to try out.
+
+
 
 
 ### Misc Issues / Notes [To be compiled]
@@ -68,6 +80,7 @@ The project aims at predicting the stock price movements using deep learning mod
         + `from tensorflow.keras.mixed_precision import experimental as mixed_precision`
         + `policy = mixed_precision.Policy('mixed_float16')`
         + `mixed_precision.set_policy(policy)`
+    + Did not notice any impact on the performance
 
 * Initially, the accuracy was stuck at 50%. Below were some of the things that helped in increasing it
     + The objective was to overfit the model i.e get the training accuracy to 99% 
@@ -93,4 +106,34 @@ The project aims at predicting the stock price movements using deep learning mod
 * After adding `keras.layers.BatchNormalization()` after every Relu layer, the accuracy was initially very low as compared to without BN after every layer. But it is gradually increasing
     + After removing BN layers, the val acc for the first epoch increased from 25% to like 49% ????????
 
+
+* Check memory occupied by int and float dtypes
+```import numpy as np
+def calcArrayMemorySize(array):
+    return "Memory size is : " + str(array.nbytes/1024/1024) + " Mb"
+    
+print(calcArrayMemorySize(np.random.randint(0,255,size=(100,64,64,3))))
+print(calcArrayMemorySize(np.random.random(size=(100,64,64,3))))
+print(calcArrayMemorySize(np.random.random_sample(size=(100,64,64,3))))
+
+Something wrong 
+#Memory size is : 9.375 Mb
+#Memory size is : 9.375 Mb
+#Memory size is : 9.375 Mb
+```
+
+* Normalising Error
+    + `set_x = set_x.astype("float32") / 255`
+    + MemoryError: Unable to allocate 24.2 GiB for an array with shape (58842, 192, 192, 3) and data type float32
+
+
+
+13th Jul 2020
+* Cross checked data as validation performance not increasing
+* Data set increased from 20 to 80 stocks, with start year of 2000
+
+17th Jul 2020
+* 15 layer model is giving average performance
+* Try class weights with reg
+* Add average model accuracy (predicting everything in majority class)
 
