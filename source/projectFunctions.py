@@ -27,13 +27,13 @@ from tensorboard.plugins.hparams import api as hp
 from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import GridSearchCV,StratifiedKFold
 
+#from tensorflow_addons.metrics.f_scores import F1Score, FBetaScore
+import tensorflow_addons as tfa
 
 from itertools import product #Create grid from dict
 
-
-print(tf.__version__)
-print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
+#print(tf.__version__)
+#print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 # Memory allocation error fixed using https://www.tensorflow.org/guide/gpu
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -49,13 +49,12 @@ if gpus:
     print("Error for the fix done for mem allocation error : ",e)
  
 
-
-print("Start Mixed Precision")
+print("Setup Mixed Precision")
 # Mixed precision - GPU
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
-print("Mixed Precision Done")
+print("Mixed Precision policy applied")
 
 
 DATE_WINDOW = 6
@@ -74,110 +73,173 @@ def plotExperiments(df):
         plt.show()
 
 
-def model_FC(l2regRate,learningRate):    
-    #,kernel_regularizer=keras.regularizers.l2(0.001)),
-
-#        ,keras.layers.Dropout(0.8)
-#        ,kernel_initializer=tf.keras.initializers.GlorotNormal()
-#        ,kernel_regularizer=keras.regularizers.l2(0.000001)
-#                            ,kernel_regularizer=keras.regularizers.l2(l2regRate))    
-
-    model = keras.Sequential([
-        keras.layers.Flatten(input_shape=(IMG_SIZE,IMG_SIZE,3))
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(256, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(256, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(256, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(256, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(256, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-
-
-        ,keras.layers.Dense(128, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(128, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(128, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(128, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(128, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-
-        ,keras.layers.Dense(64, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(64, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(64, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(64, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-
-        ,keras.layers.Dense(64, activation='relu'
-                                    ,kernel_regularizer=keras.regularizers.l2(l2regRate))             
-        ,keras.layers.BatchNormalization()
-        
-
- 
-        ,keras.layers.Dense(3,activation='softmax')
-    ])
-    print("<<<<<<<<<<===========>>>>>>>>>>>>>>")
-    #print(model.summary())
-
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learningRate),
-                    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                    # The alternative loss function is defined as follow: tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=ture_y,logits=predict_y))
-                    # loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_true,logits=predict_y)),
-                    #loss=tf.keras.losses.CategoricalCrossentropy(),
-                    #loss="sparse_categorical_crossentropy",
-                    metrics=['accuracy'])
-
-
-    return model
-
-
 def plotLoss(history):
-    pd.DataFrame(history.history).plot(figsize=(8, 5)) 
+    #pd.DataFrame(history.history).plot(figsize=(8, 5)) 
     plt.grid(True) 
     plt.gca().set_ylim(0, 1) # set the vertical range to [ 0 - 1 ]
     plt.show()
 
 
+def extendedCSVLogger(history,gridRow,extendedCSVLogger_Fname):
+   #temp_his = pd.concat([pd.DataFrame(history.history).reset_index(drop=True),pd.DataFrame(row).T.reset_index(drop=True)],axis=1)
+   tempResult = pd.DataFrame(history.history)
+   tempParams = pd.DataFrame(gridRow).T   
+   tempParams = pd.concat([tempParams]*(len(tempResult)))
+   
+#   df = df.append(pd.concat([tempResult,tempParams.reset_index(drop=True)],axis=1))#,ignore_index=True)
+   out = pd.concat([tempResult,tempParams.reset_index(drop=True)],axis=1)
+   if exists(extendedCSVLogger_Fname):
+      out.to_csv(extendedCSVLogger_Fname, sep=',',index_label='epoch',mode='a',header=False)
+   else:
+      out.to_csv(extendedCSVLogger_Fname, sep=',',index_label='epoch',header=True)
+
+
+
+
+def modelFC(l2regRate,learningRate,printModelSummary=False):
+#        ,keras.layers.Dropout(0.8)
+#        ,kernel_initializer=tf.keras.initializers.GlorotNormal()
+
+    model = keras.Sequential()
+    
+    model.add(keras.layers.Flatten(input_shape=(IMG_SIZE,IMG_SIZE,3)))
+    model.add(keras.layers.BatchNormalization())
+
+    for _ in range(5):
+        model.add(keras.layers.Dense(256, activation='relu'
+                    ,kernel_regularizer=keras.regularizers.l2(l2regRate)))
+        model.add(keras.layers.BatchNormalization())
+
+    for _ in range(5):
+        model.add(keras.layers.Dense(128, activation='relu'
+                    ,kernel_regularizer=keras.regularizers.l2(l2regRate)))
+        model.add(keras.layers.BatchNormalization())
+
+    for _ in range(5):
+        model.add(keras.layers.Dense(64, activation='relu'
+                    ,kernel_regularizer=keras.regularizers.l2(l2regRate)))
+        model.add(keras.layers.BatchNormalization())   
+
+    model.add(keras.layers.Dense(3,activation='softmax'))
+
+    print("<<<<<<<<<<===========>>>>>>>>>>>>>>")
+    if printModelSummary == True:
+        print(model.summary())
+
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learningRate),
+                    #loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                    # The alternative loss function is defined as follow: tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=ture_y,logits=predict_y))
+                    # loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_true,logits=predict_y)),
+                    loss=tf.keras.losses.CategoricalCrossentropy(),
+                    #loss="sparse_categorical_crossentropy",
+                    metrics=[tfa.metrics.F1Score(num_classes=3, average="weighted")]
+                    #metrics=['accuracy',tfa.metrics.FBetaScore(num_classes=3, average="micro", threshold=None )]
+                    #metrics=['accuracy']
+                    
+                    )
+
+    return model
+
+
+def f1_weighted(true, pred): #shapes (batch, 4)
+#Source : https://stackoverflow.com/questions/59963911/how-to-write-a-custom-f1-loss-function-with-weighted-average-for-keras
+
+    #for metrics include these two lines, for loss, don't include them
+    #these are meant to round 'pred' to exactly zeros and ones
+    predLabels = K.argmax(pred, axis=-1)
+    pred = K.one_hot(predLabels, 4) 
+
+
+    ground_positives = K.sum(true, axis=0)       # = TP + FN
+    pred_positives = K.sum(pred, axis=0)         # = TP + FP
+    true_positives = K.sum(true * pred, axis=0)  # = TP
+        #all with shape (4,)
+
+    precision = (true_positives + K.epsilon()) / (pred_positives + K.epsilon()) 
+    recall = (true_positives + K.epsilon()) / (ground_positives + K.epsilon()) 
+        #both = 1 if ground_positives == 0 or pred_positives == 0
+        #shape (4,)
+
+    f1 = 2 * (precision * recall) / (precision + recall + K.epsilon())
+        #not sure if this last epsilon is necessary
+        #matematically not, but maybe to avoid computational instability
+        #still with shape (4,)
+
+    weighted_f1 = f1 * ground_positives / K.sum(ground_positives)
+    weighted_f1 = K.sum(weighted_f1)
+
+
+    return 1 - weighted_f1 #for metrics, return only 'weighted_f1'
+
+    
+
+
 def calcArrayMemorySize(array):
     return "Memory size is : " + str(array.nbytes/1024/1024) + " Mb"
     
+
+def readXYfromDisk(noOfFiles,folder):
+    """
+    # Reads .h5 files
+    # Appends them to a list
+    # Finally converts the list to np
+    """
+
+    set_x = []
+    set_y = []
+    
+    file_counter = 1
+    for file in os.listdir(folder):
+        if file_counter > noOfFiles:
+            break
+        if file.endswith(".h5"):
+            fname = os.path.join(folder, file)
+            file = h5py.File(fname, "r")
+            set_x_temp = file["set_x"][:]
+            set_y_temp = file["set_y"][:]
+
+            set_x.append(set_x_temp)
+            set_y.append(set_y_temp)
+
+            file.close()
+            file_counter += 1
+
+    # Since set_x and set_y are list of arrays, use np.concatenate()
+    # Better than result_array = np.array(result) ?
+
+    set_x = np.concatenate(set_x,axis=0)
+    set_y = np.concatenate(set_y,axis=0)
+
+    print('X Shape : ', set_x.shape, calcArrayMemorySize(set_x)
+            ,'Y Shape: ',set_y.shape)
+    values, counts = np.unique(set_y, axis=0, return_counts=True)
+    print('Values, counts, Avg Performance : ', values,counts,counts / counts.sum())
+
+
+    return set_x,set_y
+
+##########################################################
+################    Data Prep Functions   ################
+##########################################################
+
+def saveXYtoDisk(result,folder,fname):
+    """
+    Function that separates x and y
+    And also created .h5 files to save the arrays
+    """
+    first = [x for (x,y) in result]
+    set_y = np.concatenate(first,axis =0)
+
+    second = [y for (x,y) in result]
+    set_x = np.concatenate(second,axis =0)
+
+    print(fname)
+
+    file = h5py.File(folder + fname + ".h5", "w")
+    file.create_dataset('set_x', data=set_x,dtype='uint8')
+    file.create_dataset('set_y', data=set_y,dtype='uint8')
+    file.close()
+
 
 def setTargetLabel(val):
     if val > UP_THRESHOLD_PCT: out = 2
@@ -208,8 +270,6 @@ def createCandlesticksPlot(data,index,targetLabel,inRAM = True):
     None -- to be done
 
     """      
-
-
     title = data[:1]['Date'].item().strftime('%d-%b-%Y') + " " + data[-1:]['Date'].item().strftime('%d-%b-%Y') + " Lbl:" + str(targetLabel)
 
     # To set a datetime as an index
@@ -258,68 +318,6 @@ def createCandlesticksPlot(data,index,targetLabel,inRAM = True):
 
 
     #time.sleep(1)
-
-
-def saveXYtoDisk(result,folder,fname):
-    """
-    Function that separates x and y
-    And also created .h5 files to save the arrays
-    """
-    first = [x for (x,y) in result]
-    set_y = np.concatenate(first,axis =0)
-
-    second = [y for (x,y) in result]
-    set_x = np.concatenate(second,axis =0)
-
-    print(fname)
-
-    file = h5py.File(folder + fname + ".h5", "w")
-    file.create_dataset('set_x', data=set_x,dtype='uint8')
-    file.create_dataset('set_y', data=set_y,dtype='uint8')
-    file.close()
-
-
-def readXYfromDisk(noOfFiles,folder):
-    """
-    # Reads .h5 files
-    # Appends them to a list
-    # Finally converts the list to np
-    """
-
-    set_x = []
-    set_y = []
-    
-    file_counter = 1
-    for file in os.listdir(folder):
-        if file_counter > noOfFiles:
-            break
-        if file.endswith(".h5"):
-            fname = os.path.join(folder, file)
-            file = h5py.File(fname, "r")
-            set_x_temp = file["set_x"][:]
-            set_y_temp = file["set_y"][:]
-
-            set_x.append(set_x_temp)
-            set_y.append(set_y_temp)
-
-            file.close()
-            file_counter += 1
-
-    # Since set_x and set_y are list of arrays, use np.concatenate()
-    # Better than result_array = np.array(result) ?
-
-    set_x = np.concatenate(set_x,axis=0)
-    set_y = np.concatenate(set_y,axis=0)
-
-    print('X Shape : ', set_x.shape, calcArrayMemorySize(set_x)
-            ,'Y Shape: ',set_y.shape)
-    values, counts = np.unique(set_y, axis=0, return_counts=True)
-    print('Values, counts, Avg Performance : ', values,counts,counts / counts.sum())
-
-
-    return set_x,set_y
-
-
 
 
 def applyParallel_groupby(dfGrouped, func):

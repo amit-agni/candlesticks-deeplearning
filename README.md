@@ -4,8 +4,8 @@ The project aims at predicting the stock price movements using deep learning mod
 
 ### Progress so far
 * Data Preparation
-    + Use of `mplfinance` package to create candlestick charts from OHLC CSV data 
-    + Customisation using `matplotlib` [rcParams](https://matplotlib.org/3.2.1/tutorials/introductory/customizing.html#customizing-with-matplotlibrc-files)
+    + Used `mplfinance` package to create candlestick charts from OHLC CSV data 
+    + Customisation done using `matplotlib` [rcParams](https://matplotlib.org/3.2.1/tutorials/introductory/customizing.html#customizing-with-matplotlibrc-files)
     + Created RAMDisk for read/write of chart image files
     + Used `uint8` for `numpy` arrays and also for `create_dataset` in `h5py` .h5 file creation
     + Used `multiprocessing` pool function to spawn `mp.cpu_count()` simultaneous process
@@ -24,7 +24,8 @@ The project aims at predicting the stock price movements using deep learning mod
 
 * Enabled Single Point precision (FP16) for better performance
 * Installed `[tensorboard]`(https://www.tensorflow.org/tensorboard/get_started)
-* used hParams
+* used hParams 
+
 
 ### Some Random Notes on Dropout worsens performance
 
@@ -34,7 +35,6 @@ The project aims at predicting the stock price movements using deep learning mod
     + When the network is small relative to the dataset, regularization is usually unnecessary. If the model capacity is already low, lowering it further by adding regularization will hurt performance. I noticed most of your networks were relatively small and shallow.
     + When training time is limited. It's unclear if this is the case here, but if you don't train until convergence, dropout may give worse results. Usually dropout hurts performance at the start of training, but results in the final ''converged'' error being lower. Therefore, if you don't plan to train until convergence, you may not want to use dropout.
     + Finally, I want to mention that as far as I know, dropout is rarely used nowaways, having been supplanted by a technique known as batch normalization. Of course, that's not to say dropout isn't a valid and effective tool to try out.
-
 
 
 
@@ -49,7 +49,6 @@ The project aims at predicting the stock price movements using deep learning mod
     + `set_xy = (np.empty(shape=(loop_range),dtype = 'uint8')
             ,np.empty(shape=(loop_range,IMG_SIZE,IMG_SIZE,3)))`
     + CRASHED
-
 
 * Other issues faced as mentioned above :
     + Had to use all the 6 cores using multiprocessing pool
@@ -137,3 +136,10 @@ Something wrong
 * Try class weights with reg
 * Add average model accuracy (predicting everything in majority class)
 
+
+
+18th Jul 20
+* For using the F1 metrics from tfa (tensorflowaddons), y should be one hot encoded
+    + `metrics=['accuracy',tfa.metrics.FBetaScore(num_classes=3, average="micro", threshold=None )]`
+    + And use `loss=tf.keras.losses.CategoricalCrossentropy()` 
+* Changed class weights using `counts.sum()/counts/2`
