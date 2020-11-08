@@ -9,6 +9,10 @@ extras/
 .Rhistory
 .Rproj.user
 
+#wandb
+source/wandb/
+
+
 
 # Jupyter notebook
 .ipynb_checkpoints
@@ -24,6 +28,7 @@ ipython_config.py
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
+source/__pycache__/
 __pycache__/
 *.py[cod]
 *$py.class

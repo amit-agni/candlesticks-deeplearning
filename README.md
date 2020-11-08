@@ -1,14 +1,97 @@
 # Stock price movement prediction - Deep Learning
 
-The project aims at predicting the stock price movements using deep learning models build on candlestick chart images
+## Introduction
 
-### Progress so far
-* Data Preparation
-    + Used `mplfinance` package to create candlestick charts from OHLC CSV data 
+Build a deep learning image classification model to predict stock price movements. The model will be trained using the images of Candlestick charts created with a sliding window of 5 days.
+
+The overall system flow is shown below. 
+* When the user enters a Yahoo Stock symbol
+    1. The system will retrieve the last 5 days historical price
+    2. Create a Candlestick chart 
+    3. Use the trained model to predict the price movement for the following day
+* The inference process will run daily and show the next day price predictions for the top 100 ASX stock (Australian Stock Exchange)
+* System will also show the model performance on the test set generated during the inference process
+
+![system-overview](system-overview.png)
+
+The project can be broadly divided into three parts :  
+
+I. Training Data Creation [COMPLETED]   
+II. Build Models [IN-PROGRESS]   
+III. Productionising, Inferencing and User Interface [NOT STARTED]   
+
+
+## I. Training Data Creation
+* The OHLC (Open-High-Low-Close) data for the stocks listed on the Australian Stock Exchange was used to create the candlestick charts (Training set)
+* These charts were stored as images along with a target label that indicates whether the stock price moved up or down the following day
+* Source files
+    + **01_createDatasets.ipynb** : Jupyter notebook for creating the datasets. Also, show sample train and test set images
+    + **functions_dataCreation.py** : Python file containing the functions used in the data creation process
+* Coding notes
+    + Used `mplfinance` package to create candlestick charts from OHLC CSV data.         
     + Customisation done using `matplotlib` [rcParams](https://matplotlib.org/3.2.1/tutorials/introductory/customizing.html#customizing-with-matplotlibrc-files)
-    + Created RAMDisk for read/write of chart image files
+    + Width adjustments done with help from (https://github.com/matplotlib/mplfinance/blob/master/examples/widths.ipynb)
+    + Awesome .ipynb examples here (https://github.com/matplotlib/mplfinance/blob/master/examples)
+    + Created RAMDisk for faster read/write of chart image files
     + Used `uint8` for `numpy` arrays and also for `create_dataset` in `h5py` .h5 file creation
     + Used `multiprocessing` pool function to spawn `mp.cpu_count()` simultaneous process
+
+
+## II. Build Models
+The overall plan is to use Tensorflow-Keras to test three types of Deep Learning models
+1. Fully Connected Dense Networks
+2. Convolutional Neural Networks
+3. Transfer Learning
+
+
+### 1. Fully Connected Dense Network
+* Learning Rate Finder : LR is one of the important hyperparameters that we need to determine. It is used by the optimiser to adjust the model weights such that the loss is minimised
+* Source files
+    + **02_DenseNetwork_LRFinder.ipynb** :  I have used the [LR Finder class](https://www.jeremyjordan.me/nn-learning-rate/) to find the optimum LR range for different types of networks
+    + **02_DenseNetwork_Experiments.ipynb** : The [Weights and Bias website](https://wandb.ai/amitagni/candlestick-simple?workspace=user-amitagni) was used to log the experiments conducted to reduce overfitting. Nothing worked.
+
+
+### 2. Convolutional Neural Network
+* Source files  
+    + **030_CNN_Experiments.ipynb** : Some random unsucessful experiments [documented in wandb](https://wandb.ai/amitagni/candlestick-CNN?workspace=user-amitagni) 
+    + **Time-Loss Evaluation** : How different model parameters impact Training time and Training loss
+        + **031_Time-Loss-Experiments_Setup.ipynb**
+        + **032_Time-Loss-Experiments_Evaluation.ipynb**
+    + **033_Train_10000Epochs.ipynb** : Trained for 1.5 days with no significant improvement but PC crashed
+
+.  
+.  
+.  
+
+## Next Steps :
+* Use tf.data to reduce memory usage
+* Tensorflow profiling to investigate why GPU utilisation is less than 10%
+* Tranfer learning
+* Hyperparameter tuning
+* 
+* Things to try 
+    + Try L1 regularisation, combined with L2
+    + Use Large regularisation but train longer
+    + Try other optimisation algorithms. Also do not rely on TF default  initialisations
+    + Increasing the dataset size
+
+.  
+.  
+.  
+
+## III. Inferencing and User Interface
+(NOT STARTED)  
+.  
+.  
+.  
+.  
+.  
+.  
+
+
+## Draft Notes (To be Compiled)
+
+#
 
 * Fully Connected Network Build
     + Increased image size from 64x64 to 191x192 (Lowered underfit)
@@ -38,7 +121,6 @@ The project aims at predicting the stock price movements using deep learning mod
 
 
 
-### Misc Issues / Notes [To be compiled]
 * The .h5 file sizes are huge 
     + Solved by setting dtypye to uint
     + `file.create_dataset('set_x', data=set_x,dtype='uint8')`
@@ -143,3 +225,12 @@ Something wrong
     + `metrics=['accuracy',tfa.metrics.FBetaScore(num_classes=3, average="micro", threshold=None )]`
     + And use `loss=tf.keras.losses.CategoricalCrossentropy()` 
 * Changed class weights using `counts.sum()/counts/2`
+
+21st Jul 20
+
+    + Parameter size has no impact on model run time ?
+        + 6 million parameters : 25s per epoch
+        + 13 million : 25s per epoch
+        + 28 million : 24s per epoch
+        + CPU Util was 100%
+
