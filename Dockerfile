@@ -9,6 +9,8 @@ WORKDIR /project-home
 # Optional
 VOLUME /project-home
 
+RUN python3 -m pip install --upgrade pip
+
 
 RUN apt-get update && \
     apt-get install -y git && \
@@ -16,7 +18,7 @@ RUN apt-get update && \
 
 RUN pip3 --no-cache-dir install mplfinance Pillow tensorflow-addons
 
-RUN pip3 --no-cache-dir install wandb seaborn tensorflow_io
+RUN pip3 --no-cache-dir install wandb seaborn tensorflow_io alibi-detect
 
 CMD ["jupyter", "notebook", "--ip='*'", "--no-browser", "--allow-root"]
 

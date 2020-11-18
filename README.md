@@ -24,9 +24,7 @@ III. Productionising, Inferencing and User Interface [NOT STARTED]
 ## I. Training Data Creation
 * The OHLC (Open-High-Low-Close) data for the stocks listed on the Australian Stock Exchange was used to create the candlestick charts (Training set)
 * These charts were stored as images along with a target label that indicates whether the stock price moved up or down the following day
-* Source files
-    + **01_createDatasets.ipynb** : Jupyter notebook for creating the datasets. Also, show sample train and test set images
-    + **functions_dataCreation.py** : Python file containing the functions used in the data creation process
+* 100_data-exploration.ipynb has the code for creating the datasets and EDA
 * Coding notes
     + Used `mplfinance` package to create candlestick charts from OHLC CSV data.         
     + Customisation done using `matplotlib` [rcParams](https://matplotlib.org/3.2.1/tutorials/introductory/customizing.html#customizing-with-matplotlibrc-files)
@@ -37,80 +35,124 @@ III. Productionising, Inferencing and User Interface [NOT STARTED]
     + Used `multiprocessing` pool function to spawn `mp.cpu_count()` simultaneous process
 
 
-## II. Build Models
-The overall plan is to use Tensorflow-Keras to test three types of Deep Learning models
+## II. Build Models [IN-PROGRESS]
+The overall plan is to use Tensorflow-Keras to try different types of Deep Learning models. Below models have been tried so far without much success
 1. Fully Connected Dense Networks
 2. Convolutional Neural Networks
 3. Transfer Learning
 
-
-### 1. Fully Connected Dense Network
-* Learning Rate Finder : LR is one of the important hyperparameters that we need to determine. It is used by the optimiser to adjust the model weights such that the loss is minimised
-* Source files
-    + **02_DenseNetwork_LRFinder.ipynb** :  I have used the [LR Finder class](https://www.jeremyjordan.me/nn-learning-rate/) to find the optimum LR range for different types of networks
-    + **02_DenseNetwork_Experiments.ipynb** : The [Weights and Bias website](https://wandb.ai/amitagni/candlestick-simple?workspace=user-amitagni) was used to log the experiments conducted to reduce overfitting. Nothing worked.
+## III. Inferencing and User Interface [NOT STARTED]
 
 
-### 2. Convolutional Neural Network
-* Source files  
-    + **030_CNN_Experiments.ipynb** : Some random unsucessful experiments [documented in wandb](https://wandb.ai/amitagni/candlestick-CNN?workspace=user-amitagni) 
-    + **Time-Loss Evaluation** : How different model parameters impact Training time and Training loss
-        + **031_Time-Loss-Experiments_Setup.ipynb**
-        + **032_Time-Loss-Experiments_Evaluation.ipynb**
-    + **033_Train_10000Epochs.ipynb** : Trained for 1.5 days with no significant improvement but PC crashed
+***
 
 .  
 .  
 .  
+
+## Current Status :
+* So far, none of the models have been able to give good performance. The main cause is possibly because they are not able to get enough signals and patterns from the training dataset
+* Things tried/learnt so far :
+    + CNN and Transfer learning using Mobilenet 
+    + Learning Rate finder
+    + Learning rate decay
+    + Weights and Biases website for logging experiments
+    + tf.Data for loading datasets larger than RAM
+    + Optimisation algorithms : relu, Leaky Relu, Adam 
+    + Training data : Image enhancement, Removed outlier images using RGB mean, Increasing dataset size
+    + Keras Tuning
+    + GPU utilisation fixed
+    
 
 ## Next Steps :
-* Use tf.data to reduce memory usage
-* Tensorflow profiling to investigate why GPU utilisation is less than 10%
-* Tranfer learning
-* Hyperparameter tuning
-* 
-* Things to try 
-    + Try L1 regularisation, combined with L2
-    + Use Large regularisation but train longer
-    + Try other optimisation algorithms. Also do not rely on TF default  initialisations
-    + Increasing the dataset size
+    + Extract features using Transfer learning and then use Logistic, XGB, RF, SVM, etc
+    + Try different optimisation algorithm initialiser parameters
+        + HE activation for Relu and Xavier for Adam ?\
+        + Change alpha and beta values    
+    + Custom loss function
+    + L1 regularisation, combined with L2
+    + Convolutions with higher strides
+    + Outlier detection refine : Separate RGB and then find their means 
+    + Anamoly detection in images
+
 
 .  
 .  
 .  
-
-## III. Inferencing and User Interface
-(NOT STARTED)  
 .  
 .  
 .  
-.  
-.  
-.  
-
 
 ## Draft Notes (To be Compiled)
 
-#
 
-* Fully Connected Network Build
-    + Increased image size from 64x64 to 191x192 (Lowered underfit)
-    + Batch Normalisation (Lower overfit)
-        + `,keras.layers.BatchNormalization()`
-    + Dropout Regularisation (Lower overfit)
-        + `,keras.layers.Dropout(0.5)`
-        + rate = keep_probability, lower for higher overfit
-    + Activation layers : `kernel_initializer=tf.keras.initializers.` (Lower overfit)
-        + he_normal() for `tanh` activations
-        + GlorotNormal() for `relu` activations also called Xavier normal initializer
-        + Both have normal and uniform versions
+## Tensorflow - GPU setup
+
+* Tensorflow by default allocates entire GPU memory to the running process. This results in a error if you try to run multiple scripts. Fixed using the [this config](https://www.tensorflow.org/guide/gpu)
+    ```
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+    ```
+* Mixed precision
+    + https://www.tensorflow.org/guide/mixed_precision
+    + As my GPU is RTX2060 with compute capability of 7.5 I used it
+    ```
+       from tensorflow.keras.mixed_precision import experimental as mixed_precision
+       policy = mixed_precision.Policy('mixed_float16')
+       mixed_precision.set_policy(policy)
+    ```
+    + Did not notice any impact on the performance
+
+
+## tf.Data 
+* Be sure to shard before you use any randomizing operator (such as shuffle).
+* Generally it is best if the shard operator is used early in the dataset pipeline. For example, when reading from a set of TFRecord files, shard before converting the dataset to input samples. This avoids reading every file on every worker. The following is an example of an efficient sharding strategy within a complete pipeline:
+
+* By contrast, the buffer_size argument to tf.data.Dataset.shuffle() affects the randomness of the transformation. We designed the Dataset.shuffle() transformation (like the tf.train.shuffle_batch() function that it replaces) to handle datasets that are too large to fit in memory. Instead of shuffling the entire dataset, it maintains a buffer of buffer_size elements, and randomly selects the next element from that buffer (replacing it with the next input element, if one is available). Changing the value of buffer_size affects how uniform the shuffling is: if buffer_size is greater than the number of elements in the dataset, you get a uniform shuffle; if it is 1 then you get no shuffling at all. For very large datasets, a typical "good enough" approach is to randomly shard the data into multiple files once before training, then shuffle the filenames uniformly, and then use a smaller shuffle buffer. However, the appropriate choice will depend on the exact nature of your training job.
+
+## Fully Connected Network Build
++ Increased image size from 64x64 to 191x192 (Lowered underfit)
++ Batch Normalisation (Lower overfit)
+    + `,keras.layers.BatchNormalization()`
++ Dropout Regularisation (Lower overfit)
+    + `,keras.layers.Dropout(0.5)`
+    + rate = keep_probability, lower for higher overfit
++ Activation layers : `kernel_initializer=tf.keras.initializers.` (Lower overfit)
+    + he_normal() for `tanh` activations
+    + GlorotNormal() for `relu` activations also called Xavier normal initializer
+    + Both have normal and uniform versions
 
 * Enabled Single Point precision (FP16) for better performance
 * Installed `[tensorboard]`(https://www.tensorflow.org/tensorboard/get_started)
 * used hParams 
 
+## Improving Training time
+There are many other factors but let us focus mainly on these to improve the Training time.
 
-### Some Random Notes on Dropout worsens performance
+* Train/Test Split : For large datasets, to reduce the Training time choose the split size to be 0.3 instead of 0.2 or 0.1, in that way the training time reduces by a large factor at the cost of models performance but we will come to that later and see how we can actually do something to create more data while training.
+* Learning rate: This factor doesn't really affects the training time but rather I've opted this to just point out that different datasets ask for different learning rates so using a constant value like 0.01 or 0.003 or any other famous learning rate value to train your model won't really help you out you need to try different learning rates for the same dataset time to again unless you find the best convergence but taking into account that if the dataset is too large then trying different learning rate can become very troublesome and time consuming. And for that we have something called reduce lr on plateau. We'll see to that in the next point.
+* Reduce lr on plateau - Reduce learning rate when a metric has stopped improving. Models often benefit from reducing the learning rate by a factor of 2-10 once learning stagnates. This callback monitors a quantity and if no improvement is seen for a 'patience' number of epochs, the learning rate is reduced. Giving you a better convergence. You will be able to find this callback function in Keras and Tensorflow.
+* Data Augmentation - to get more data, you just need to make minor alterations to our existing dataset. Minor changes such as flips or translations or rotations. Our neural network would think these are distinct images anyway. A convolutional neural network that can robustly classify objects even if its placed in different orientations is said to have the property called invariance.
+* Dense Layers - after doing all these you won't be needing to use a number of dense layers in the end and rather the convolutional and maxpooling followed by another convolutional and max pooling and then a dense layer followed by the output layer will be enough to get you an accuracy of above your benchmark and reducing the overall training time.
+* Dropout - Increase the dropout from 0.2 to 0.25 for better training time and avoiding over fitting.
+* Epochs - reduce the number of epochs to 30–35 for a improvement in training time. That's my ideal number. If that doesn't suits you I'm pretty sure you'll find yours.
+
+Our optimization goal is to chase that sweet spot where our model’s loss is low, which happens when your parameters are tuned in the right way. Thus instead of increasing the number of layers try to set the hyperparameters. Also, the number of parameters you need is proportional to the complexity of the task your model has to perform.
+
+There are other factors like Batch Normalization, Random Sampling , Natural Biases, Feature Scaling, regularization terms but these aren't that very necessary except for feature scaling , you need to do that almost everywhere.
+
+
+
+## Some Random Notes on Dropout worsens performance
 
 * Furthermore, be careful where you use dropout. It is usually ineffective in the convolutional layers, and very harmful to use right before the softmax layer.
 * Dropout is a regularization technique, and is most effective at preventing overfitting. However, there are several places when dropout can hurt performance.
@@ -120,6 +162,20 @@ The overall plan is to use Tensorflow-Keras to test three types of Deep Learning
     + Finally, I want to mention that as far as I know, dropout is rarely used nowaways, having been supplanted by a technique known as batch normalization. Of course, that's not to say dropout isn't a valid and effective tool to try out.
 
 
+## Misc
+* I also notice that you did not define an activation function for the last layer : keras.layers.Dense(10), if you define the loss a crossentropy you need to get some probability as output of your network, for example keras.layers.Dense(10, activation='softmax')
+
+* Why the initial accuracy is 0 :As your accuracy is pretty low it's highly probable that in a first few batches none of the examples will be classified properly. Especially when you have a small batch. This makes accuracy to be 0 at the beginning of your training.
+
+* Our model has nearly 1 million free parameters but only 60,000 training data points. What should we be worried about? The answer is overfitting. And to help reduce overfitting, we always add dropout. Typically we add dropout after layers that have free parameters: in this case, before the first dense layer, and before the second dense layer. We have set dropout = 40%, but it can be anywhere between 20% and 50%. Our code now looks like this:
+
+* Loss wiggly
+    + this is what i expect a validation loss to look like if your validation set is tiny and you’re using a high learning rate
+    + Well, I actually save all models (one per epoch) and average three best ones (with harmonic mean, which works better than simple average or geometric mean for some opaque reason) and indeed it gives better results.
+    + My volatility problem is solved when i increased the batch size from 16 to 128.
+
+* When using tf.Data, if the shuffle buffer_size is not the same as the number of available samples then the model will get different set of samples after the buffer becomes empty andthe loss plot will become wiggly. 
+* **In the earlier CNN experiments, I had not changed the default stride of (1,1). Increasing it to (2,2) allowed quicker conversion**
 
 * The .h5 file sizes are huge 
     + Solved by setting dtypye to uint
@@ -154,14 +210,6 @@ The overall plan is to use Tensorflow-Keras to test three types of Deep Learning
         + Use keras.layers.BatchNormalization()
     + Side note : Types are changing to float due to tf.image.resize_images.
 
-
-* Mixed precision
-    + https://www.tensorflow.org/guide/mixed_precision
-    + As my GPU is RTX2060 with compute capability of 7.5 I used it
-        + `from tensorflow.keras.mixed_precision import experimental as mixed_precision`
-        + `policy = mixed_precision.Policy('mixed_float16')`
-        + `mixed_precision.set_policy(policy)`
-    + Did not notice any impact on the performance
 
 * Initially, the accuracy was stuck at 50%. Below were some of the things that helped in increasing it
     + The objective was to overfit the model i.e get the training accuracy to 99% 
@@ -208,29 +256,9 @@ Something wrong
     + MemoryError: Unable to allocate 24.2 GiB for an array with shape (58842, 192, 192, 3) and data type float32
 
 
-
-13th Jul 2020
-* Cross checked data as validation performance not increasing
-* Data set increased from 20 to 80 stocks, with start year of 2000
-
-17th Jul 2020
-* 15 layer model is giving average performance
-* Try class weights with reg
-* Add average model accuracy (predicting everything in majority class)
-
-
-
 18th Jul 20
 * For using the F1 metrics from tfa (tensorflowaddons), y should be one hot encoded
     + `metrics=['accuracy',tfa.metrics.FBetaScore(num_classes=3, average="micro", threshold=None )]`
     + And use `loss=tf.keras.losses.CategoricalCrossentropy()` 
 * Changed class weights using `counts.sum()/counts/2`
-
-21st Jul 20
-
-    + Parameter size has no impact on model run time ?
-        + 6 million parameters : 25s per epoch
-        + 13 million : 25s per epoch
-        + 28 million : 24s per epoch
-        + CPU Util was 100%
 

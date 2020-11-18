@@ -1,0 +1,55 @@
+#Dockerfile for the Candlestick Image Predictions project
+
+FROM python:3.8.2-slim-buster
+
+
+EXPOSE 8888
+
+# So that the project does not start in the root directory
+WORKDIR /project-home 
+
+# Optional
+VOLUME /project-home
+
+#RUN apt-get install -y git
+
+RUN apt-get update && \
+#    apt-get upgrade -y && \
+    apt-get install -y git && \
+    pip3  --no-cache-dir install jupyter numpy matplotlib pandas tensorflow-gpu scipy==1.4.1
+
+RUN pip3 --no-cache-dir install mplfinance Pillow
+
+# pandas_datareader - yahoo stocks 
+# scipy Pillow imageio scikit-learn h5py
+
+#Once the project is frozen, use this requirements file?
+#RUN pip3  --no-cache-dir install -r /project-home/requirements.txt
+
+# Store the package versions for future reproducibility
+CMD ["pip3" "freeze" "> /project-home/requirements.txt"]
+
+CMD ["jupyter", "notebook", "--ip='*'", "--port=8888", "--no-browser", "--allow-root"]
+
+# Useful Docker Commands 
+# Build Image : docker build -t candlestick . 
+# Create container : docker run -p 8888:8888 -v "/Mac Backup/OneDrive/Python/Projects/Candlestick Image Prediction":/project-home candlestick
+# On windows -p is needed and I think the whole volume string needs to be inside quotes
+# Create container : docker run  -p 8888:8888 -v "${pwd}:/project-home" --name cs candlestick
+
+
+#docker run  -p 8888:8888 -v "/mnt/c/Amit/OneDrive/Python/Projects/Candlestick Image Prediction:/project-home"  --name cs candlestick
+
+
+# sh into a running container : docker exec -it confident_wilbur /bin/sh
+# list : jupyter notebook list
+
+
+# Archive
+#CMD ["bin/sh"]
+#RUN apt-get update && apt-get install -y 
+# DID NOT WORK : For PDF download : Installs pandoc, (nbconvert already installed ?) and texlive
+#RUN apt-get update && \
+#	apt-get install pandoc -Y && \
+#	apt-get install texlive-xetex texlive-fonts-recommended texlive-generic-recommended -Y
+
